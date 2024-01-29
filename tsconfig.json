@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "module": "esnext",
-    "lib": ["es2018"],
+    "lib": [
+      "es2018",
+      "dom",
+    ],
     "target": "es2018",
     "moduleResolution": "Node",
     "outDir": "dist",
@@ -11,9 +14,15 @@
     "experimentalDecorators": true,
     "noImplicitReturns": true,
     "allowSyntheticDefaultImports": true,
-    "allowUnreachableCode": false
+    "allowUnreachableCode": false,
+    "types": [
+      "./node_modules/@types/screeps",
+      "./src/creep/Creep.d.ts",
+      "./src/main.d.ts",
+      "./src/creep/memory/CreepMemory.d.ts",
+    ],
   },
   "exclude": [
-    "node_modules"
-  ]
+    "node_modules",
+  ],
 }
