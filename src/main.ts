@@ -1,8 +1,6 @@
-import { RoleType } from "creep/Creep";
-import { MovementState } from "creep/Creep";
+import { CreepGroups, Creeper, RoleType, groupCreepsByRole } from "creep/Creeper";
 import { ErrorMapper } from "utils/ErrorMapper";
-// import harvesterRun from "roles/harvester";
-
+import {Spawner} from "./Spawner";
 
 export type Success = "Success"
 export const Success: Success = "Success"
@@ -11,24 +9,40 @@ export const Failure: Failure = "Failure"
 export type ReachedDestination = "ReachedDestination"
 export const ReachedDestination: ReachedDestination = "ReachedDestination"
 
-declare global {
-    // Syntax for adding proprties to `global` (ex "global.log")
-    namespace NodeJS {
-        interface Global {
-            log: any;
-        }
-    }
-}
+const maxHarvesterCount = 3;
+const maxUpgraderCount = 3;
 
 export const loop = ErrorMapper.wrapLoop(() => {
-    console.log("Hello");
+    if (!Memory.creepCount)
+        Memory.creepCount = 2;
+
+    if (Game.cpu.bucket === 10000)
+        Game.cpu.generatePixel();
+
+    let creepGroups: CreepGroups = groupCreepsByRole(Object.values(Game.creeps));
+    let needHarvesters = _.max([0, maxHarvesterCount - creepGroups[RoleType.Harvester].length]);
+    let neededUpgraders = _.max([0, maxUpgraderCount - creepGroups[RoleType.Upgrader].length]);
+
     for (let creepName in Game.creeps) {
         let creep: Creep = Game.creeps[creepName];
-        creep.run();
+        let creeper: Creeper = Creeper.initialize(creep);
+        // console.log(`creeper ${JSON.stringify(creeper)} ${typeof creeper}`)
+        creeper.runIsDone();
     }
     for (let structureName in Game.structures) {
         let structure = Game.structures[structureName];
         // structure.run();
+    }
+    for (let spawnName in Game.spawns) {
+        let spawnStructure: StructureSpawn = Game.spawns[spawnName];
+        let spawner = new Spawner(spawnStructure);
+        if (!spawner.isActive() || spawner.spawning) {
+            continue;
+        }
+        if (needHarvesters > 0 && spawner.spawnHarvester())
+            needHarvesters -= 1;
+        else if (neededUpgraders > 0 && spawner.spawnUpgrader())
+            neededUpgraders -= 1;
     }
 
     // Automatically delete memory of missing creeps

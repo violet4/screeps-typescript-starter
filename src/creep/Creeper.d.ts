@@ -1,0 +1,3 @@
+interface Creep {
+    memory: CreepMemory;
+}

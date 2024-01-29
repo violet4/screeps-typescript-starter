@@ -6,6 +6,3 @@ interface Memory {
     creepCount: number;
 }
 
-interface StructureSpawn {
-    run(): void;
-}

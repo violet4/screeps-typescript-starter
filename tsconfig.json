@@ -3,7 +3,7 @@
     "module": "esnext",
     "lib": [
       "es2018",
-      "dom",
+      "dom", // need this just to get console.log?
     ],
     "target": "es2018",
     "moduleResolution": "Node",
@@ -16,10 +16,12 @@
     "allowSyntheticDefaultImports": true,
     "allowUnreachableCode": false,
     "types": [
+      "./src/creep/Creeper",
+      "./src/main",
+      "./src/creep/memory/CreepMemory",
       "./node_modules/@types/screeps",
-      "./src/creep/Creep.d.ts",
-      "./src/main.d.ts",
-      "./src/creep/memory/CreepMemory.d.ts",
+      "./node_modules/@types/node",
+      "./node_modules/@types/lodash",
     ],
   },
   "exclude": [

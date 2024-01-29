@@ -1,11 +1,10 @@
-import { MovementState, RoleType } from '../Creep';
+import { MovementState, RoleType } from '../Creeper';
 
 declare global {
     interface CreepMemory {
         role: RoleType;
-        room: string;
-        chosenTargetId: Id<Structure> | undefined;
+        chosenTargetId: Id<Structure> | Id<Source> | "" | undefined;
         state: string;
-        movementState: MovementState;
+        movementState: MovementState | "";
     }
 }
