@@ -29,6 +29,9 @@ export class Spawner {
     spawnUpgrader() {
         return this.spawnSomeCreep([WORK, CARRY, MOVE], RoleType.Upgrader);
     }
+    spawnWorker() {
+        return this.spawnSomeCreep([WORK, CARRY, MOVE], RoleType.Worker);
+    }
     isActive(): boolean {
         return this.spawner.isActive();
     }
