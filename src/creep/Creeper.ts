@@ -210,17 +210,98 @@ export class Creeper {
         return Game.rooms[this.creep.room.name].controller;
     }
 
+    performGetEnergy(): boolean {
+        const target: Structure<StructureConstant> | null | undefined = this.getTarget();
+        if (!target) return false;
+        if (this.creep.withdraw(target, RESOURCE_ENERGY) === OK)
+            return true;
+
+        const sources = target.pos.lookFor('source');
+        if (sources.length>0 && this.creep.harvest(sources[0]) === OK)
+            return true;
+        else if (this.tryMoveToTarget())
+            return true;
+        return false;
+    }
+    performUpgrade(): boolean {
+        const target = this.getTarget();
+        if (!target) return false;
+        if (this.creep.upgradeController(target as StructureController) === OK)
+            return true;
+        else if (this.creep.moveTo(target) === OK)
+            return true;
+        return false;
+    }
+    setUpgradeTarget() {
+        this.chosenTargetId = this.getRoomController()?.id;
+    }
 
 }
-
 class WorkerCreep extends Creeper {
     constructor(creep: Creep) {super(creep);}
     runIsDone(): boolean {
-        // console.log("WorkerCrep.run")
-        return true;
+        if (super.runIsDone()) return true;
+        this.decideNextState();
+
+        switch (this.state) {
+            case GetEnergyState:
+                return this.performGetEnergy();
+            case UpgradeState:
+                return this.performUpgrade();
+        }
+        return false;
+    }
+
+    decideNextState(): void {
+        if (this.state === GetEnergyState) {
+            if (this.isEnergyFull()) {
+                this.state = UpgradeState;
+                this.chosenTargetId = undefined;
+            }
+        }
+        else if (this.state === UpgradeState) {
+            if (this.isEnergyEmpty()) {
+                this.state = GetEnergyState;
+                this.chosenTargetId = undefined;
+            }
+        }
+        else {
+            if (this.hasEnergy()) {
+                this.state = UpgradeState;
+                this.chosenTargetId = undefined;
+            }
+            else {
+                this.state = GetEnergyState;
+                this.chosenTargetId = undefined;
+            }
+        }
+
+        if (!this.chosenTargetId) {
+            if (this.state === UpgradeState)
+                this.setUpgradeTarget();
+            else if (this.state === GetEnergyState)
+                this.setEnergyTarget();
+        }
     }
 }
-class UpgraderCreep extends Creeper {
+
+class BuilderCreep extends WorkerCreep {
+    constructor(creep: Creep) {super(creep);}
+    runIsDone(): boolean {
+        if (super.runIsDone()) return true;
+        this.decideNextState();
+
+        switch (this.state) {
+            case GetEnergyState:
+                return this.performGetEnergy();
+            case UpgradeState:
+                return this.performUpgrade();
+        }
+        return false;
+    }
+}
+
+class UpgraderCreep extends WorkerCreep {
     constructor(creep: Creep) {super(creep);}
     runIsDone(): boolean {
         if (super.runIsDone()) return true;
@@ -235,9 +316,6 @@ class UpgraderCreep extends Creeper {
                 return this.performUpgrade();
         }
         return false;
-    }
-    setUpgradeTarget() {
-        this.chosenTargetId = this.getRoomController()?.id;
     }
     decideNextState(): void {
         if (this.state === GetEnergyState) {
@@ -270,45 +348,7 @@ class UpgraderCreep extends Creeper {
                 this.setEnergyTarget();
         }
     }
-    performUpgrade(): boolean {
-        const target = this.getTarget();
-        if (!target) return false;
-        if (this.creep.upgradeController(target as StructureController) === OK)
-            return true;
-        else if (this.creep.moveTo(target) === OK)
-            return true;
-        return false;
-    }
-    performGetEnergy(): boolean {
-        const target: Structure<StructureConstant> | null | undefined = this.getTarget();
-        if (!target) return false;
-        if (this.creep.withdraw(target, RESOURCE_ENERGY) === OK)
-            return true;
 
-        const sources = target.pos.lookFor('source');
-        if (sources.length>0 && this.creep.harvest(sources[0]) === OK)
-            return true;
-        else if (this.tryMoveToTarget())
-            return true;
-        return false;
-    }
-
-    // decideNextState(): void {
-    //     if (this.state === HarvestState) {
-    //         if (this.energyIsFull()) {
-    //             this.state = DeliverState;
-    //             this.setDeliveryTarget();
-    //         }
-    //     }
-    //     else if (this.state === DeliverState && this.energyIsEmpty()) {
-    //         this.state = HarvestState;
-    //         this.setHarvestTarget();
-    //     }
-    //     else {
-    //         this.state = HarvestState;
-    //         this.setHarvestTarget();
-    //     }
-    // }
 }
 
 class HarvesterCreep extends Creeper {
@@ -354,7 +394,7 @@ class HarvesterCreep extends Creeper {
             (struct) => {
                 return (
                     (struct.structureType === STRUCTURE_CONTAINER && struct.store.getFreeCapacity(RESOURCE_ENERGY) >= 50)
-                    || (struct.structureType === STRUCTURE_EXTENSION && struct.store.getFreeCapacity(RESOURCE_ENERGY) >= 50)
+                    || (struct.structureType === STRUCTURE_EXTENSION && struct.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
                     || (struct.structureType === STRUCTURE_SPAWN && struct.store.getFreeCapacity(RESOURCE_ENERGY) >= 50)
                 );
             }
