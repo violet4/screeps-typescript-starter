@@ -9,9 +9,10 @@ export const Failure: Failure = "Failure"
 export type ReachedDestination = "ReachedDestination"
 export const ReachedDestination: ReachedDestination = "ReachedDestination"
 
-const maxHarvesterCount = 3;
+const maxHarvesterCount = 2;
 const maxUpgraderCount = 3;
 const maxWorkerCount = 1;
+const maxBuilderCount = 1;
 
 export const loop = ErrorMapper.wrapLoop(() => {
     if (!Memory.creepCount)
@@ -24,6 +25,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
     let needHarvesters = _.max([0, maxHarvesterCount - creepGroups[RoleType.Harvester].length]);
     let neededUpgraders = _.max([0, maxUpgraderCount - creepGroups[RoleType.Upgrader].length]);
     let needWorkers = _.max([0, maxWorkerCount - creepGroups[RoleType.Worker].length]);
+    let needBuilders = _.max([0, maxBuilderCount - creepGroups[RoleType.Builder].length]);
 
     for (let creepName in Game.creeps) {
         let creep: Creep = Game.creeps[creepName];
@@ -47,6 +49,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
             neededUpgraders -= 1;
         else if (needWorkers > 0 && spawner.spawnWorker())
             needWorkers -= 1;
+        else if (needBuilders > 0 && spawner.spawnWorker())
+            needBuilders -= 1;
     }
 
     // Automatically delete memory of missing creeps

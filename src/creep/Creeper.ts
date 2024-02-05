@@ -3,25 +3,26 @@ export enum RoleType {
     Harvester = "Harvester",
     Worker = "Worker",
     Upgrader = "Upgrader",
+    Builder = "Builder",
 }
-export type RenewingState = "Renewing"
-export const RenewingState: RenewingState = "Renewing"
-export type IdleState = "Idle"
-export const IdleState: IdleState = "Idle"
-export type HarvestState = "Harvest"
-export const HarvestState: HarvestState = "Harvest"
+export type RenewingState = "RenewingState"
+export const RenewingState: RenewingState = "RenewingState"
+export type IdleState = "IdleState"
+export const IdleState: IdleState = "IdleState"
+export type HarvestState = "HarvestState"
+export const HarvestState: HarvestState = "HarvestState"
 
 export type GetEnergyState = "GetEnergyState"
 export const GetEnergyState: GetEnergyState = "GetEnergyState"
 export type UpgradeState = "UpgradeState"
 export const UpgradeState: UpgradeState = "UpgradeState"
 
-export type DeliverState = "Deliver"
-export const DeliverState: DeliverState = "Deliver"
-export type BuildState = "Build"
-export const BuildState: BuildState = "Build"
-export type RepairState = "Repair"
-export const RepairState: RepairState = "Repair"
+export type DeliverState = "DeliverState"
+export const DeliverState: DeliverState = "DeliverState"
+export type BuildState = "BuildState"
+export const BuildState: BuildState = "BuildState"
+export type RepairState = "RepairState"
+export const RepairState: RepairState = "RepairState"
 
 export type BaseCreepState = IdleState | RenewingState
 export type HarvesterStates = HarvestState | DeliverState
@@ -30,10 +31,10 @@ export type UpgraderStates = GetEnergyState | UpgradeState
 
 export type CreepState = BaseCreepState | HarvesterStates | WorkerStates | UpgraderStates
 
-export type AtTargetState = "AtTarget"
-export const AtTargetState: AtTargetState = "AtTarget"
-export type MovingState = "Moving"
-export const MovingState: MovingState = "Moving"
+export type AtTargetState = "AtTargetState"
+export const AtTargetState: AtTargetState = "AtTargetState"
+export type MovingState = "MovingState"
+export const MovingState: MovingState = "MovingState"
 export type MovementState = IdleState|AtTargetState|MovingState
 
 export class Creeper {
@@ -53,6 +54,9 @@ export class Creeper {
         else if (roleType === RoleType.Upgrader) {
             return new UpgraderCreep(creep);
         }
+        else if (roleType === RoleType.Builder) {
+            return new BuilderCreep(creep);
+        }
         return new Creeper(creep);
     }
 
@@ -65,7 +69,13 @@ export class Creeper {
     public get chosenTargetId() {
         return this.creep.memory.chosenTargetId;
     }
-    public set chosenTargetId(targetId: "" | Id<Structure<StructureConstant>> | Id<Source> | undefined) {
+    public set chosenTargetId(targetId:
+        ""
+        | Id<Structure<StructureConstant>>
+        | Id<Source>
+        | Id<ConstructionSite<BuildableStructureConstant>>
+        | undefined
+    ) {
         this.creep.memory.chosenTargetId = targetId;
     }
 
@@ -105,6 +115,14 @@ export class Creeper {
         if (this.chosenTargetId === undefined) return undefined;
         return Game.getObjectById(this.chosenTargetId as Id<Structure>);
     }
+    getStructureTarget() {
+        if (this.chosenTargetId === undefined) return undefined;
+        return Game.getObjectById(this.chosenTargetId as Id<Structure>);
+    }
+    getBuildTarget() {
+        if (this.chosenTargetId === undefined) return undefined;
+        return Game.getObjectById(this.chosenTargetId as Id<ConstructionSite<BuildableStructureConstant>>);
+    }
 
     findNearestNonemptySource(): Source | null {
         if (!this.creep.body.some(bodyPart => bodyPart.type==WORK))
@@ -125,46 +143,65 @@ export class Creeper {
         if (container !== null) return container;
         return this.findNearestNonemptySource();
     }
+    findNearestConstruction() {
+        const construction_site = this.creep.pos.findClosestByPath(
+            FIND_CONSTRUCTION_SITES,
+        );
+        // console.log(`${this.creep.name}: construction_site: ${JSON.stringify(construction_site)}`)
+        return construction_site;
+    }
     tryMoveToTarget() {
-        if (!this.chosenTargetId) return false;
+        if (!this.chosenTargetId) {
+            // console.log(`${this.creep.name} tryMoveToTarget but no chosen target id`)
+            return false;
+        }
+        const targetId = this.chosenTargetId;
         const target = this.getTargetPosition();
         if (target===undefined) {
             //TODO..?
             this.chosenTargetId = undefined;
+            // console.error(`unexpectedly tried to move to target that can't be determined; creep ${this.creep.name}; target id was ${targetId}`)
             return false;
         }
         if (this.creep.moveTo(target.x, target.y)===OK) {
-            // if(this.creep.pos.inRangeTo(target, 1)) {
-            //     this.creep.memory.movementState = AtTargetState;
-            // }
+            // console.log(`${this.creep.name} successfully moved towards target`)
+            if(this.creep.pos.inRangeTo(target, 1)) {
+                this.creep.memory.movementState = AtTargetState;
+            }
             return true;
         }
-        else return false;
+        else  {
+            // console.log(`${this.creep.name} failed to move towards target`)
+            return false;
+        }
     }
     neededRenewAction() {
         //TODO don't forcibly renew. something else may be more important.
-        // if ((this.creep.ticksToLive??101)<100 && this.state !== RenewingState) {
-        if ((this.creep.ticksToLive??150)<150 && this.state !== RenewingState) {
+        if ((this.creep.ticksToLive??200)<200 && this.state !== RenewingState && this.creep.store.energy===0) {
+            console.log(`${this.creep.name} begin renewing`)
             this.state = RenewingState;
             this.creep.memory.movementState = MovingState;
-            this.chosenTargetId = this.findNearestSpawn()?.id;
+            this.chosenTargetId = undefined;
         }
         if (this.state === RenewingState) {
-            if (this.creep.memory.movementState === MovingState) {
-                return this.tryMoveToTarget();
-            }
-            else if (this.creep.memory.movementState === AtTargetState) {
-                //TODO handle errors
-                this.findNearestSpawn()?.renewCreep(this.creep);
-                // finished healing
-                if (this.creep?.ticksToLive??1001 >= 1000) {
+            if (!this.chosenTargetId)
+                this.chosenTargetId = this.findNearestSpawn()?.id;
+
+            console.log(`${this.creep.name} is in renewing state`)
+            if (this.findNearestSpawn()?.renewCreep(this.creep)===OK) {
+                console.log(`${this.creep.name} successfully completed one renew`)
+                if ((this.creep?.ticksToLive??1000) > 1000) {
+                    console.log(`${this.creep.name} tickstolive ${this.creep?.ticksToLive} hit requirement 1000, no more renewing`)
                     this.state = IdleState;
                     this.creep.memory.movementState = IdleState;
                     this.chosenTargetId = undefined;
                 }
                 return true;
             }
-
+            else {
+                console.log(`${this.creep.name} trying to move to target`)
+                return this.tryMoveToTarget();
+            }
         }
         return false;
     }
@@ -294,11 +331,58 @@ class BuilderCreep extends WorkerCreep {
         switch (this.state) {
             case GetEnergyState:
                 return this.performGetEnergy();
-            case UpgradeState:
-                return this.performUpgrade();
+            case BuildState:
+                return this.performBuild();
         }
         return false;
     }
+    performBuild(): boolean {
+        const target: ConstructionSite<BuildableStructureConstant> | null | undefined = this.getBuildTarget();
+        if (!target) return false;
+        if (this.creep.build(target) === OK)
+            return true;
+        else if (this.tryMoveToTarget())
+            return true;
+        return false;
+    }
+
+    decideNextState(): void {
+        if (this.state === GetEnergyState) {
+            if (this.isEnergyFull()) {
+                this.state = BuildState;
+                this.chosenTargetId = undefined;
+            }
+        }
+        else if (this.state === BuildState) {
+            if (this.isEnergyEmpty()) {
+                this.state = GetEnergyState;
+                this.chosenTargetId = undefined;
+            }
+        }
+        else {
+            if (this.hasEnergy()) {
+                this.state = BuildState;
+                this.chosenTargetId = undefined;
+            }
+            else {
+                this.state = GetEnergyState;
+                this.chosenTargetId = undefined;
+            }
+        }
+
+        if (!this.chosenTargetId) {
+            if (this.state === BuildState)
+                this.setBuildTarget();
+            else if (this.state === GetEnergyState)
+                this.setEnergyTarget();
+            else
+                console.log(`unexpected builder state: ${this.state}`);
+        }
+    }
+    setBuildTarget() {
+        this.chosenTargetId = this.findNearestConstruction()?.id;
+    }
+
 }
 
 class UpgraderCreep extends WorkerCreep {
