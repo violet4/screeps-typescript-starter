@@ -49,7 +49,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
             neededUpgraders -= 1;
         else if (needWorkers > 0 && spawner.spawnWorker())
             needWorkers -= 1;
-        else if (needBuilders > 0 && spawner.spawnWorker())
+        else if (needBuilders > 0 && spawner.spawnBuilder())
             needBuilders -= 1;
     }
 

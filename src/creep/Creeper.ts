@@ -556,6 +556,9 @@ class HarvesterCreep extends Creeper {
         else if (this.state === IdleState) {
             if (Game.time % 10 === 0) {
                 this.setDeliveryTarget();
+                if (this.chosenTargetId !== undefined) {
+                    this.state = DeliverState;
+                }
             }
         }
         else {
