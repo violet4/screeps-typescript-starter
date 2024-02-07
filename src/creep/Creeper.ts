@@ -74,6 +74,7 @@ export class Creeper {
         | Id<Structure<StructureConstant>>
         | Id<Source>
         | Id<ConstructionSite<BuildableStructureConstant>>
+        | `pos:${number},${number},${string}`
         | undefined
     ) {
         this.creep.memory.chosenTargetId = targetId;
@@ -108,6 +109,15 @@ export class Creeper {
         );
     }
 
+    getTargetRoomPosition(): RoomPosition | undefined {
+        if (this.chosenTargetId && this.chosenTargetId.startsWith('pos:')) {
+            const [xs, ys, roomName] = this.chosenTargetId.split(':')[1].split(',');
+            const x = Number.parseInt(xs);
+            const y = Number.parseInt(ys);
+            return new RoomPosition(x, y, roomName);
+        }
+        return undefined;
+    }
     getTargetPosition() {
         return this.getTarget()?.pos;
     }
@@ -130,6 +140,11 @@ export class Creeper {
 
         //TODO make this work 1+ rooms away?..
         return this.creep.pos.findClosestByPath(FIND_SOURCES, {filter: src => src.energy>0});
+    }
+    findFlag(name: string): RoomPosition | null {
+        const flag: Flag | null = this.creep.pos.findClosestByPath(FIND_FLAGS, {filter: (flag) => flag.name===name});
+        if (!flag) return null;
+        return flag.pos;
     }
     findNearestSpawn() {
         return this.creep.pos.findClosestByPath(FIND_MY_SPAWNS, {filter: (spawn) => spawn.isActive()});
@@ -160,7 +175,7 @@ export class Creeper {
         if (target===undefined) {
             //TODO..?
             this.chosenTargetId = undefined;
-            // console.error(`unexpectedly tried to move to target that can't be determined; creep ${this.creep.name}; target id was ${targetId}`)
+            // console.log(`unexpectedly tried to move to target that can't be determined; creep ${this.creep.name}; target id was ${targetId}`)
             return false;
         }
         if (this.creep.moveTo(target.x, target.y)===OK) {
@@ -178,7 +193,7 @@ export class Creeper {
     neededRenewAction() {
         //TODO don't forcibly renew. something else may be more important.
         if ((this.creep.ticksToLive??200)<200 && this.state !== RenewingState && this.creep.store.energy===0) {
-            console.log(`${this.creep.name} begin renewing`)
+            console.log(`${this.creep.name} begin renewing from ttl ${this.creep?.ticksToLive}`)
             this.state = RenewingState;
             this.creep.memory.movementState = MovingState;
             this.chosenTargetId = undefined;
@@ -187,9 +202,9 @@ export class Creeper {
             if (!this.chosenTargetId)
                 this.chosenTargetId = this.findNearestSpawn()?.id;
 
-            console.log(`${this.creep.name} is in renewing state`)
+            // console.log(`${this.creep.name} is in renewing state`)
             if (this.findNearestSpawn()?.renewCreep(this.creep)===OK) {
-                console.log(`${this.creep.name} successfully completed one renew`)
+                // console.log(`${this.creep.name} successfully completed one renew`)
                 if ((this.creep?.ticksToLive??1000) > 1000) {
                     console.log(`${this.creep.name} tickstolive ${this.creep?.ticksToLive} hit requirement 1000, no more renewing`)
                     this.state = IdleState;
@@ -199,7 +214,7 @@ export class Creeper {
                 return true;
             }
             else {
-                console.log(`${this.creep.name} trying to move to target`)
+                // console.log(`${this.creep.name} trying to move to target`)
                 return this.tryMoveToTarget();
             }
         }
@@ -268,6 +283,15 @@ export class Creeper {
         else if (this.creep.moveTo(target) === OK)
             return true;
         return false;
+    }
+    performIdle(): boolean {
+        if (!this.chosenTargetId)
+            return false;
+        const flagPos = this.getTargetRoomPosition();
+        if (!flagPos)
+            return false;
+        this.creep.moveTo(flagPos.x, flagPos.y);
+        return true;
     }
     setUpgradeTarget() {
         this.chosenTargetId = this.getRoomController()?.id;
@@ -376,7 +400,7 @@ class BuilderCreep extends WorkerCreep {
             else if (this.state === GetEnergyState)
                 this.setEnergyTarget();
             else
-                console.log(`unexpected builder state: ${this.state}`);
+                console.log(`ERROR:unexpected builder state: ${this.state}`);
         }
     }
     setBuildTarget() {
@@ -448,8 +472,10 @@ class HarvesterCreep extends Creeper {
                 return this.performHarvest();
             case DeliverState:
                 return this.performDelivery();
+            case IdleState:
+                return this.performIdle();
         }
-        console.error(`harvester encountered unexpected state ${this.state}`)
+        console.log(`ERROR:harvester encountered unexpected state ${this.state}`)
         return false;
     }
 
@@ -483,8 +509,11 @@ class HarvesterCreep extends Creeper {
                 );
             }
         });
-        if (!struct)
+        if (!struct) {
+            console.log("no structures to deliver to")
             return;
+
+        }
         // console.log(`delivering to ${JSON.stringify(struct)}`)
         this.chosenTargetId = struct.id;
     }
@@ -494,6 +523,17 @@ class HarvesterCreep extends Creeper {
             return;
         if (source?.id)
             this.chosenTargetId = source.id;
+    }
+    setFlagTarget(name: string): void {
+        const flag = this.findFlag(name);
+        if (!flag) {
+            this.chosenTargetId = undefined;
+            return;
+        }
+        this.chosenTargetId = `pos:${flag.x},${flag.y},${flag?.roomName}`;
+    }
+    setIdleTarget(): void {
+        this.setFlagTarget("harvesters");
     }
     decideNextState(): void {
         // harvesting and we fill up
@@ -509,6 +549,14 @@ class HarvesterCreep extends Creeper {
                 this.state = HarvestState;
                 this.chosenTargetId = undefined;
             }
+            else if (this.chosenTargetId === undefined) {
+                this.state = IdleState;
+            }
+        }
+        else if (this.state === IdleState) {
+            if (Game.time % 10 === 0) {
+                this.setDeliveryTarget();
+            }
         }
         else {
             this.state = HarvestState;
@@ -520,6 +568,8 @@ class HarvesterCreep extends Creeper {
                 this.setDeliveryTarget();
             else if (this.state === HarvestState)
                 this.setHarvestTarget();
+            else if (this.state === IdleState)
+                this.setIdleTarget();
         }
 
     }
