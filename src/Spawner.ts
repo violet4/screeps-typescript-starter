@@ -24,7 +24,7 @@ export class Spawner {
         return false;
     }
     spawnHarvester() {
-        return this.spawnSomeCreep([WORK, CARRY, MOVE, MOVE], RoleType.Harvester);
+        return this.spawnSomeCreep([WORK, WORK, CARRY, MOVE, MOVE, MOVE], RoleType.Harvester);
     }
     spawnUpgrader() {
         return this.spawnSomeCreep([WORK, CARRY, MOVE, MOVE], RoleType.Upgrader);

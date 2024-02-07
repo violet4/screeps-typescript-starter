@@ -9,9 +9,9 @@ export const Failure: Failure = "Failure"
 export type ReachedDestination = "ReachedDestination"
 export const ReachedDestination: ReachedDestination = "ReachedDestination"
 
-const maxHarvesterCount = 2;
-const maxUpgraderCount = 3;
-const maxWorkerCount = 1;
+const maxHarvesterCount = 1;
+const maxUpgraderCount = 1;
+const maxWorkerCount = 0;
 const maxBuilderCount = 1;
 
 export const loop = ErrorMapper.wrapLoop(() => {

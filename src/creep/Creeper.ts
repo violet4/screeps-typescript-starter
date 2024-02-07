@@ -497,14 +497,18 @@ class HarvesterCreep extends Creeper {
     }
     decideNextState(): void {
         // harvesting and we fill up
-        if (this.state === HarvestState && this.energyIsFull()) {
-            this.state = DeliverState;
-            this.chosenTargetId = undefined;
+        if (this.state === HarvestState) {
+            if (this.energyIsFull()) {
+                this.state = DeliverState;
+                this.chosenTargetId = undefined;
+            }
         }
         // delivering and we run out
-        else if (this.state === DeliverState && this.energyIsEmpty()) {
-            this.state = HarvestState;
-            this.chosenTargetId = undefined;
+        else if (this.state === DeliverState) {
+            if (this.energyIsEmpty()) {
+                this.state = HarvestState;
+                this.chosenTargetId = undefined;
+            }
         }
         else {
             this.state = HarvestState;
